@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HR System - Settings</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                display: flex;
+                min-height: 100vh;
+                margin: 0;
+            }
+            .sidebar {
+                width: 250px;
+                background: #343a40;
+                color: white;
+                height: 100vh;
+                position: fixed;
+            }
+            .sidebar a {
+                color: white;
+                padding: 15px;
+                display: block;
+                text-decoration: none;
+            }
+            .sidebar a:hover {
+                background: #495057;
+            }
+            .content {
+                margin-left: 250px;
+                flex-grow: 1;
+                padding: 20px;
+            }
+            .navbar {
+                background: #f8f9fa;
+            }
+            .table {
+                background: #fff;
+                border: 1px solid #ddd;
+            }
+            .table th,
+            .table td {
+                vertical-align: middle;
+            }
+            .section {
+                margin-bottom: 40px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="sidebar-container"></div>
+        <div class="content">
+            <div id="navbar-container"></div>
+            <div class="container-fluid mt-4">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h1 class="card-title mb-4">Settings</h1>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="section mb-4">
+                                            <h3>Manage Roles</h3>
+                                            <button
+                                                class="btn btn-primary mb-3"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#roleModal"
+                                                onclick="resetRoleForm()"
+                                            >
+                                                Add New Role
+                                            </button>
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="roleList"></tbody>
+                                            </table>
+                                        </div>
+                                        <div class="section mb-4">
+                                            <h3>Manage Departments</h3>
+                                            <button
+                                                class="btn btn-primary mb-3"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#departmentModal"
+                                                onclick="resetDepartmentForm()"
+                                            >
+                                                Add New Department
+                                            </button>
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="departmentList"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="section mb-4">
+                                            <h3>Manage Relationships</h3>
+                                            <button
+                                                class="btn btn-primary mb-3"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#relationshipModal"
+                                                onclick="resetRelationshipForm()"
+                                            >
+                                                Add New Relationship
+                                            </button>
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="relationshipList"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- مودال برای فرم نقش -->
+            <div
+                class="modal fade"
+                id="roleModal"
+                tabindex="-1"
+                aria-labelledby="roleModalLabel"
+                aria-hidden="true"
+            >
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="roleModalLabel">
+                                Role Form
+                            </h5>
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            ></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="roleForm">
+                                <input type="hidden" id="roleId" />
+                                <div class="mb-3">
+                                    <label for="roleName" class="form-label"
+                                        >Role Name</label
+                                    >
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="roleName"
+                                        required
+                                    />
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                data-bs-dismiss="modal"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                onclick="saveRole()"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- مودال برای فرم دپارتمان -->
+            <div
+                class="modal fade"
+                id="departmentModal"
+                tabindex="-1"
+                aria-labelledby="departmentModalLabel"
+                aria-hidden="true"
+            >
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="departmentModalLabel">
+                                Department Form
+                            </h5>
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            ></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="departmentForm">
+                                <input type="hidden" id="departmentId" />
+                                <div class="mb-3">
+                                    <label
+                                        for="departmentName"
+                                        class="form-label"
+                                        >Department Name</label
+                                    >
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="departmentName"
+                                        required
+                                    />
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                data-bs-dismiss="modal"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                onclick="saveDepartment()"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- مودال برای فرم رابطه -->
+            <div
+                class="modal fade"
+                id="relationshipModal"
+                tabindex="-1"
+                aria-labelledby="relationshipModalLabel"
+                aria-hidden="true"
+            >
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="relationshipModalLabel">
+                                Relationship Form
+                            </h5>
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            ></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="relationshipForm">
+                                <input type="hidden" id="relationshipId" />
+                                <div class="mb-3">
+                                    <label
+                                        for="relationshipName"
+                                        class="form-label"
+                                        >Relationship Name</label
+                                    >
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="relationshipName"
+                                        required
+                                    />
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                data-bs-dismiss="modal"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                onclick="saveRelationship()"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            <script>
+                function loadPartial(id, url, callback) {
+                    fetch(url)
+                        .then(res => res.text())
+                        .then(html => {
+                            document.getElementById(id).innerHTML = html;
+                            if (callback) callback();
+                        });
+                }
+                document.addEventListener("DOMContentLoaded", () => {
+                    loadPartial('sidebar-container', 'sidebar.html');
+                    loadPartial('navbar-container', 'navbar.html', function() {
+                        fetch('/api/current-user')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data && data.username) {
+                                    document.getElementById('currentUser').textContent = '👤 ' + data.username;
+                            } else {
+                                document.getElementById('currentUser').textContent = '';
+                            }
+                        });
+                        const logoutLink = document.querySelector('a[href="#logout"]');
+                        if (logoutLink) {
+                            logoutLink.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                fetch('/api/logout')
+                                    .then(() => {
+                                        window.location.href = '/login';
+                                    });
+                            });
+                        }
+                    });
+                });
+            </script>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", () => {
+                    loadRoles();
+                    loadDepartments();
+                    loadRelationships();
+                });
+
+                function loadRoles() {
+                    const roleList = document.getElementById("roleList");
+                    roleList.innerHTML = "";
+
+                    fetch("/api/roles")
+                        .then((response) => response.json())
+                        .then((roles) => {
+                            roles.forEach((role) => {
+                                const row = document.createElement("tr");
+                                row.innerHTML = `
+                                <td>${role.name}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" onclick="editRole(${role.id}, '${role.name}')">Edit</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRole(${role.id}, '${role.name}')">Delete</button>
+                                </td>
+                            `;
+                                roleList.appendChild(row);
+                            });
+                        })
+                        .catch((error) =>
+                            console.error("Error fetching roles:", error),
+                        );
+                }
+
+                function resetRoleForm() {
+                    document.getElementById("roleForm").reset();
+                    document.getElementById("roleId").value = "";
+                    document.getElementById("roleModalLabel").textContent =
+                        "Add New Role";
+                }
+
+                function editRole(id, name) {
+                    document.getElementById("roleId").value = id;
+                    document.getElementById("roleName").value = name;
+                    document.getElementById("roleModalLabel").textContent =
+                        "Edit Role";
+                    new bootstrap.Modal(
+                        document.getElementById("roleModal"),
+                    ).show();
+                }
+
+                function saveRole() {
+                    const id = document.getElementById("roleId").value;
+                    const role = {
+                        name: document.getElementById("roleName").value,
+                    };
+
+                    const method = id ? "PUT" : "POST";
+                    const url = id ? `/api/roles/${id}` : "/api/roles";
+
+                    fetch(url, {
+                        method: method,
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(role),
+                    })
+                        .then((response) => response.json())
+                        .then(() => {
+                            bootstrap.Modal.getInstance(
+                                document.getElementById("roleModal"),
+                            ).hide();
+                            loadRoles();
+                        })
+                        .catch((error) =>
+                            console.error("Error saving role:", error),
+                        );
+                }
+
+                function deleteRole(id, name) {
+                    if (confirm(`Are you sure you want to delete ${name}?`)) {
+                        fetch(`/api/roles/${id}`, {
+                            method: "DELETE",
+                        })
+                            .then((response) => response.json())
+                            .then(() => loadRoles())
+                            .catch((error) =>
+                                console.error("Error deleting role:", error),
+                            );
+                    }
+                }
+
+                function loadDepartments() {
+                    const departmentList =
+                        document.getElementById("departmentList");
+                    departmentList.innerHTML = "";
+
+                    fetch("/api/departments")
+                        .then((response) => response.json())
+                        .then((departments) => {
+                            departments.forEach((department) => {
+                                const row = document.createElement("tr");
+                                row.innerHTML = `
+                                <td>${department.name}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" onclick="editDepartment(${department.id}, '${department.name}')">Edit</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteDepartment(${department.id}, '${department.name}')">Delete</button>
+                                </td>
+                            `;
+                                departmentList.appendChild(row);
+                            });
+                        })
+                        .catch((error) =>
+                            console.error("Error fetching departments:", error),
+                        );
+                }
+
+                function resetDepartmentForm() {
+                    document.getElementById("departmentForm").reset();
+                    document.getElementById("departmentId").value = "";
+                    document.getElementById("departmentModalLabel").textContent =
+                        "Add New Department";
+                }
+
+                function editDepartment(id, name) {
+                    document.getElementById("departmentId").value = id;
+                    document.getElementById("departmentName").value = name;
+                    document.getElementById("departmentModalLabel").textContent =
+                        "Edit Department";
+                    new bootstrap.Modal(
+                        document.getElementById("departmentModal"),
+                    ).show();
+                }
+
+                function saveDepartment() {
+                    const id = document.getElementById("departmentId").value;
+                    const department = {
+                        name: document.getElementById("departmentName").value,
+                    };
+
+                    const method = id ? "PUT" : "POST";
+                    const url = id ? `/api/departments/${id}` : "/api/departments";
+
+                    fetch(url, {
+                        method: method,
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(department),
+                    })
+                        .then((response) => response.json())
+                        .then(() => {
+                            bootstrap.Modal.getInstance(
+                                document.getElementById("departmentModal"),
+                            ).hide();
+                            loadDepartments();
+                        })
+                        .catch((error) =>
+                            console.error("Error saving department:", error),
+                        );
+                }
+
+                function deleteDepartment(id, name) {
+                    if (confirm(`Are you sure you want to delete ${name}?`)) {
+                        fetch(`/api/departments/${id}`, {
+                            method: "DELETE",
+                        })
+                            .then((response) => response.json())
+                            .then(() => loadDepartments())
+                            .catch((error) =>
+                                console.error("Error deleting department:", error),
+                            );
+                    }
+                }
+
+                function loadRelationships() {
+                    const relationshipList =
+                        document.getElementById("relationshipList");
+                    relationshipList.innerHTML = "";
+
+                    fetch("/api/relationships")
+                        .then((response) => response.json())
+                        .then((relationships) => {
+                            relationships.forEach((relationship) => {
+                                const row = document.createElement("tr");
+                                row.innerHTML = `
+                                <td>${relationship.name}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" onclick="editRelationship(${relationship.id}, '${relationship.name}')">Edit</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRelationship(${relationship.id}, '${relationship.name}')">Delete</button>
+                                </td>
+                            `;
+                                relationshipList.appendChild(row);
+                            });
+                        })
+                        .catch((error) =>
+                            console.error("Error fetching relationships:", error),
+                        );
+                }
+
+                function resetRelationshipForm() {
+                    document.getElementById("relationshipForm").reset();
+                    document.getElementById("relationshipId").value = "";
+                    document.getElementById("relationshipModalLabel").textContent =
+                        "Add New Relationship";
+                }
+
+                function editRelationship(id, name) {
+                    document.getElementById("relationshipId").value = id;
+                    document.getElementById("relationshipName").value = name;
+                    document.getElementById("relationshipModalLabel").textContent =
+                        "Edit Relationship";
+                    new bootstrap.Modal(
+                        document.getElementById("relationshipModal"),
+                    ).show();
+                }
+
+                function saveRelationship() {
+                    const id = document.getElementById("relationshipId").value;
+                    const relationship = {
+                        name: document.getElementById("relationshipName").value,
+                    };
+
+                    const method = id ? "PUT" : "POST";
+                    const url = id
+                        ? `/api/relationships/${id}`
+                        : "/api/relationships";
+
+                    fetch(url, {
+                        method: method,
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(relationship),
+                    })
+                        .then((response) => response.json())
+                        .then(() => {
+                            bootstrap.Modal.getInstance(
+                                document.getElementById("relationshipModal"),
+                            ).hide();
+                            loadRelationships();
+                        })
+                        .catch((error) =>
+                            console.error("Error saving relationship:", error),
+                        );
+                }
+
+                function deleteRelationship(id, name) {
+                    if (confirm(`Are you sure you want to delete ${name}?`)) {
+                        fetch(`/api/relationships/${id}`, {
+                            method: "DELETE",
+                        })
+                            .then((response) => response.json())
+                            .then(() => loadRelationships())
+                            .catch((error) =>
+                                console.error(
+                                    "Error deleting relationship:",
+                                    error,
+                                ),
+                            );
+                    }
+                }
+            </script>
+        </div>
+    </body>
+</html>

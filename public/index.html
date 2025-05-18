@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HR System - Dashboard</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                display: flex;
+                min-height: 100vh;
+                margin: 0;
+            }
+            .sidebar {
+                width: 250px;
+                background: #343a40;
+                color: white;
+                height: 100vh;
+                position: fixed;
+            }
+            .sidebar a {
+                color: white;
+                padding: 15px;
+                display: block;
+                text-decoration: none;
+            }
+            .sidebar a:hover {
+                background: #495057;
+            }
+            .content {
+                margin-left: 250px;
+                flex-grow: 1;
+                padding: 20px;
+            }
+            .navbar {
+                background: #f8f9fa;
+            }
+            .card {
+                margin-bottom: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="sidebar-container"></div>
+        <div class="content">
+            <div id="navbar-container"></div>
+
+            <!-- Page Content -->
+            <div class="container mt-4">
+                <h1>Dashboard</h1>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Employees</h5>
+                                <p class="card-text" id="totalEmployees">
+                                    Loading...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Departments</h5>
+                                <p class="card-text" id="totalDepartments">
+                                    Loading...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Family Members</h5>
+                                <p class="card-text" id="totalFamilyMembers">
+                                    Loading...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            // Dynamic partial loading
+            function loadPartial(id, url, callback) {
+                fetch(url)
+                    .then(res => res.text())
+                    .then(html => {
+                        document.getElementById(id).innerHTML = html;
+                        if (callback) callback();
+                    });
+            }
+            document.addEventListener("DOMContentLoaded", () => {
+                loadPartial('sidebar-container', 'sidebar.html', function() {
+                    // If you need to show the current user in the sidebar, add it here
+                });
+                loadPartial('navbar-container', 'navbar.html', function() {
+                    // نمایش نام کاربر جاری در navbar
+                    fetch('/api/current-user')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.username) {
+                                document.getElementById('currentUser').textContent = '👤 ' + data.username;
+                            } else {
+                                document.getElementById('currentUser').textContent = '';
+                            }
+                        });
+                    // عملکرد logout
+                    const logoutLink = document.querySelector('a[href="#logout"]');
+                    if (logoutLink) {
+                        logoutLink.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            fetch('/api/logout')
+                                .then(() => {
+                                    window.location.href = '/login';
+                                });
+                        });
+                    }
+                });
+
+                // دریافت تعداد کل کارمندا
+                fetch("/api/employees")
+                    .then((response) => response.json())
+                    .then((data) => {
+                        document.getElementById("totalEmployees").textContent =
+                            data.total;
+                    })
+                    .catch((error) =>
+                        console.error("Error fetching employees:", error),
+                    );
+
+                // دریافت تعداد کل دپارتمان‌ها
+                fetch("/api/departments")
+                    .then((response) => response.json())
+                    .then((departments) => {
+                        document.getElementById(
+                            "totalDepartments",
+                        ).textContent = departments.length;
+                    })
+                    .catch((error) =>
+                        console.error("Error fetching departments:", error),
+                    );
+
+                // دریافت تعداد کل اعضای خانواده
+                fetch("/api/family")
+                    .then((response) => response.json())
+                    .then((family) => {
+                        document.getElementById(
+                            "totalFamilyMembers",
+                        ).textContent = family.length;
+                    })
+                    .catch((error) =>
+                        console.error("Error fetching family members:", error),
+                    );
+            });
+        </script>
+    </body>
+</html>

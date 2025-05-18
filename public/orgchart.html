@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HR System - Organizational Chart</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                display: flex;
+                min-height: 100vh;
+                margin: 0;
+            }
+            .sidebar {
+                width: 250px;
+                background: #343a40;
+                color: white;
+                height: 100vh;
+                position: fixed;
+            }
+            .sidebar a {
+                color: white;
+                padding: 15px;
+                display: block;
+                text-decoration: none;
+            }
+            .sidebar a:hover {
+                background: #495057;
+            }
+            .content {
+                margin-left: 250px;
+                flex-grow: 1;
+                padding: 20px;
+            }
+            .navbar {
+                background: #f8f9fa;
+            }
+            #orgchart {
+                width: 100%;
+                min-height: 600px;
+                border: 1px solid #ddd;
+                overflow: auto;
+                background: #fff;
+            }
+            .orgchart {
+                background: #fff !important;
+            }
+            .orgchart .node {
+                border: 2px solid #000;
+                border-radius: 3px;
+                background: #fff;
+            }
+            .orgchart .node .title {
+                background-color: #4472c4;
+                color: #fff;
+                padding: 5px;
+            }
+            .orgchart .node .content {
+                border-top: 1px solid #000;
+                padding: 5px;
+            }
+            .orgchart .lines .downLine {
+                background-color: #000;
+            }
+            .orgchart .lines .rightLine {
+                border-top: 2px solid #000;
+            }
+            .orgchart .lines .leftLine {
+                border-top: 2px solid #000;
+            }
+            .orgchart .lines .topLine {
+                border-left: 2px solid #000;
+            }
+            .error-message {
+                color: red;
+                margin-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="sidebar-container"></div>
+        <div class="content">
+            <div id="navbar-container"></div>
+            <div class="container-fluid mt-4">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h1 class="card-title mb-4">Organizational Chart</h1>
+                                <div id="orgchart" style="min-height:600px;"></div>
+                                <div id="error-message" class="error-message mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/orgchart@3.1.1/dist/js/jquery.orgchart.min.js"></script>
+        <link href="https://cdn.jsdelivr.net/npm/orgchart@3.1.1/dist/css/jquery.orgchart.min.css" rel="stylesheet" />
+        <script>
+            function loadPartial(id, url, callback) {
+                fetch(url)
+                    .then(res => res.text())
+                    .then(html => {
+                        document.getElementById(id).innerHTML = html;
+                        if (callback) callback();
+                    });
+            }
+            document.addEventListener("DOMContentLoaded", () => {
+                loadPartial('sidebar-container', 'sidebar.html');
+                loadPartial('navbar-container', 'navbar.html', function() {
+                    fetch('/api/current-user')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.username) {
+                                document.getElementById('currentUser').textContent = '👤 ' + data.username;
+                            } else {
+                                document.getElementById('currentUser').textContent = '';
+                            }
+                        });
+                    const logoutLink = document.querySelector('a[href="#logout"]');
+                    if (logoutLink) {
+                        logoutLink.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            fetch('/api/logout')
+                                .then(() => {
+                                    window.location.href = '/login';
+                                });
+                        });
+                    }
+                });
+                loadOrgChart();
+            });
+
+            function loadOrgChart() {
+                fetch("/api/orgchart")
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error(
+                                `HTTP error! Status: ${response.status}`,
+                            );
+                        }
+                        return response.json();
+                    })
+                    .then((nodes) => {
+                        console.log("Received nodes:", nodes);
+                        if (!nodes || nodes.length === 0) {
+                            displayError(
+                                "No employees found to display in the org chart.",
+                            );
+                            return;
+                        }
+
+                        // Find root (CEO with parentId=null)
+                        const rootNode = nodes.find((node) => !node.parentId);
+                        if (!rootNode) {
+                            displayError("No root employee (CEO) found.");
+                            return;
+                        }
+
+                        // Build hierarchy
+                        const datasource = buildHierarchy(nodes, rootNode.id);
+                        console.log("OrgChart datasource:", datasource);
+
+                        // Render org chart
+                        $("#orgchart").orgchart({
+                            data: datasource,
+                            nodeContent: "title",
+                            direction: "t2b",
+                            verticalLevel: 3,
+                            toggleSiblingsResp: true,
+                            nodeTemplate: function (data) {
+                                return `
+                                    <div class="title">${data.name}</div>
+                                    <div class="content">${data.title}</div>
+                                `;
+                            },
+                        });
+                    })
+                    .catch((error) => {
+                        console.error("Error loading org chart:", error);
+                        displayError(
+                            "Failed to load organizational chart: " +
+                                error.message,
+                        );
+                    });
+            }
+
+            function buildHierarchy(nodes, parentId) {
+                const node = nodes.find((n) => n.id === parentId);
+                if (!node) return null;
+
+                const children = nodes
+                    .filter((n) => n.parentId === parentId)
+                    .map((child) => buildHierarchy(nodes, child.id))
+                    .filter((child) => child !== null);
+
+                return {
+                    name: node.name,
+                    title: node.title,
+                    children: children.length > 0 ? children : undefined,
+                };
+            }
+
+            function displayError(message) {
+                const errorDiv = document.getElementById("error-message");
+                errorDiv.textContent = message;
+            }
+        </script>
+    </body>
+</html>

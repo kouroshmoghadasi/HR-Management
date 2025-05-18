@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HR System - Employees</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                display: flex;
+                min-height: 100vh;
+                margin: 0;
+            }
+            .sidebar {
+                width: 250px;
+                background: #343a40;
+                color: white;
+                height: 100vh;
+                position: fixed;
+            }
+            .sidebar a {
+                color: white;
+                padding: 15px;
+                display: block;
+                text-decoration: none;
+            }
+            .sidebar a:hover {
+                background: #495057;
+            }
+            .content {
+                margin-left: 250px;
+                flex-grow: 1;
+                padding: 20px;
+            }
+            .navbar {
+                background: #f8f9fa;
+            }
+            .table {
+                background: #fff;
+                border: 1px solid #ddd;
+            }
+            .table th,
+            .table td {
+                vertical-align: middle;
+            }
+            .filter-section {
+                margin-bottom: 20px;
+            }
+            .pagination {
+                justify-content: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="sidebar-container"></div>
+        <div class="content">
+            <div id="navbar-container"></div>
+            <div class="container-fluid mt-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="card-title mb-4">Employees</h1>
+                        <div class="filter-section row g-3 align-items-end mb-3">
+                            <div class="col-md-2">
+                                <label for="search" class="form-label">Name</label>
+                                <input
+                                    type="text"
+                                    id="search"
+                                    class="form-control"
+                                    placeholder="Search by name..."
+                                />
+                            </div>
+                            <div class="col-md-2">
+                                <label for="searchCode" class="form-label">Code</label>
+                                <input
+                                    type="text"
+                                    id="searchCode"
+                                    class="form-control"
+                                    placeholder="Employee code..."
+                                />
+                            </div>
+                            <div class="col-md-2">
+                                <label for="filterDepartment" class="form-label"
+                                    >Department</label
+                                >
+                                <select
+                                    id="filterDepartment"
+                                    class="form-select"
+                                ></select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="filterRole" class="form-label">Role</label>
+                                <select id="filterRole" class="form-select"></select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="filterManager" class="form-label"
+                                    >Manager</label
+                                >
+                                <select id="filterManager" class="form-select"></select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="filterGender" class="form-label">Gender</label>
+                                <select id="filterGender" class="form-select">
+                                    <option value="">All</option>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button
+                                    class="btn btn-secondary w-100"
+                                    onclick="resetFilters()"
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button
+                                    class="btn btn-success w-100"
+                                    onclick="generateReport()"
+                                >
+                                    Export
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button
+                                    class="btn btn-primary w-100"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#employeeModal"
+                                    onclick="resetForm()"
+                                >
+                                    Add Employee
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Name</th>
+                                        <th>Gender</th>
+                                        <th>Role</th>
+                                        <th>Department</th>
+                                        <th>Hire Date</th>
+                                        <th>Manager</th>
+                                        <th>Subordinates</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employeeList"></tbody>
+                            </table>
+                        </div>
+                        <ul class="pagination mt-3" id="pagination"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- مودال برای فرم -->
+            <div
+                class="modal fade"
+                id="employeeModal"
+                tabindex="-1"
+                aria-labelledby="employeeModalLabel"
+                aria-hidden="true"
+            >
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="employeeModalLabel">
+                                Employee Form
+                            </h5>
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            ></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="employeeForm">
+                                <div class="mb-3">
+                                    <label for="gender" class="form-label">Gender</label>
+                                    <select class="form-control" id="gender" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="M">Male</option>
+                                        <option value="F">Female</option>
+                                    </select>
+                                </div>
+                                <input type="hidden" id="employeeId" />
+                                <div class="mb-3">
+                                    <label for="employeeCode" class="form-label"
+                                        >Employee Code</label
+                                    >
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="employeeCode"
+                                        required
+                                    />
+                                </div>
+                                <div class="mb-3">
+                                    <label for="name" class="form-label"
+                                        >Name</label
+                                    >
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="name"
+                                        required
+                                    />
+                                </div>
+                                <div class="mb-3">
+                                    <label for="roleId" class="form-label"
+                                        >Role</label
+                                    >
+                                    <select
+                                        class="form-control"
+                                        id="roleId"
+                                        required
+                                    >
+                                        <option value="">Select Role</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="departmentId" class="form-label"
+                                        >Department</label
+                                    >
+                                    <select
+                                        class="form-control"
+                                        id="departmentId"
+                                        required
+                                    >
+                                        <option value="">
+                                            Select Department
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="managerId" class="form-label"
+                                        >Manager</label
+                                    >
+                                    <select class="form-control" id="managerId">
+                                        <option value="">No Manager</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="hireDate" class="form-label"
+                                        >Hire Date</label
+                                    >
+                                    <input
+                                        type="date"
+                                        class="form-control"
+                                        id="hireDate"
+                                        required
+                                    />
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                data-bs-dismiss="modal"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                onclick="saveEmployee()"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            function loadPartial(id, url, callback) {
+                fetch(url)
+                    .then(res => res.text())
+                    .then(html => {
+                        document.getElementById(id).innerHTML = html;
+                        if (callback) callback();
+                    });
+            }
+            document.addEventListener("DOMContentLoaded", () => {
+                loadPartial('sidebar-container', 'sidebar.html');
+                loadPartial('navbar-container', 'navbar.html', function() {
+                    fetch('/api/current-user')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.username) {
+                                document.getElementById('currentUser').textContent = '👤 ' + data.username;
+                            } else {
+                                document.getElementById('currentUser').textContent = '';
+                            }
+                        });
+                    const logoutLink = document.querySelector('a[href="#logout"]');
+                    if (logoutLink) {
+                        logoutLink.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            fetch('/api/logout')
+                                .then(() => {
+                                    window.location.href = '/login';
+                                });
+                        });
+                    }
+                });
+            });
+        </script>
+        <script>
+            let currentPage = 1;
+            const limit = 10;
+
+            document.addEventListener("DOMContentLoaded", () => {
+                loadDepartmentsForDropdown();
+                loadRolesForDropdown();
+                loadEmployeesForManagerDropdown();
+                loadDepartmentsForFilter();
+                loadRolesForFilter();
+                loadManagersForFilter();
+                loadEmployees(currentPage);
+            });
+
+            function loadDepartmentsForDropdown() {
+                fetch("/api/departments")
+                    .then((response) => response.json())
+                    .then((departments) => {
+                        const departmentSelect =
+                            document.getElementById("departmentId");
+                        departmentSelect.innerHTML =
+                            '<option value="">Select Department</option>';
+                        departments.forEach((department) => {
+                            const option = document.createElement("option");
+                            option.value = department.id;
+                            option.textContent = department.name;
+                            departmentSelect.appendChild(option);
+                        });
+                    })
+                    .catch((error) =>
+                        console.error("Error loading departments:", error),
+                    );
+            }
+
+            function loadRolesForDropdown() {
+                fetch("/api/roles")
+                    .then((response) => response.json())
+                    .then((roles) => {
+                        const roleSelect = document.getElementById("roleId");
+                        roleSelect.innerHTML =
+                            '<option value="">Select Role</option>';
+                        roles.forEach((role) => {
+                            const option = document.createElement("option");
+                            option.value = role.id;
+                            option.textContent = role.name;
+                            roleSelect.appendChild(option);
+                        });
+                    })
+                    .catch((error) =>
+                        console.error("Error loading roles:", error),
+                    );
+            }
+
+            function loadEmployeesForManagerDropdown() {
+                fetch("/api/employees")
+                    .then((response) => response.json())
+                    .then((data) => {
+                        const managerSelect =
+                            document.getElementById("managerId");
+                        managerSelect.innerHTML =
+                            '<option value="">No Manager</option>';
+                        data.employees.forEach((employee) => {
+                            const option = document.createElement("option");
+                            option.value = employee.id;
+                            option.textContent = employee.name;
+                            managerSelect.appendChild(option);
+                        });
+                    })
+                    .catch((error) =>
+                        console.error(
+                            "Error loading employees for manager:",
+                            error,
+                        ),
+                    );
+            }
+
+            function loadDepartmentsForFilter() {
+                fetch("/api/departments")
+                    .then((response) => response.json())
+                    .then((departments) => {
+                        const filterDepartment =
+                            document.getElementById("filterDepartment");
+                        filterDepartment.innerHTML =
+                            '<option value="">All Departments</option>';
+                        departments.forEach((department) => {
+                            const option = document.createElement("option");
+                            option.value = department.id;
+                            option.textContent = department.name;
+                            filterDepartment.appendChild(option);
+                        });
+                    })
+                    .catch((error) =>
+                        console.error(
+                            "Error loading departments for filter:",
+                            error,
+                        ),
+                    );
+            }
+
+            function loadRolesForFilter() {
+                fetch("/api/roles")
+                    .then((response) => response.json())
+                    .then((roles) => {
+                        const filterRole =
+                            document.getElementById("filterRole");
+                        filterRole.innerHTML =
+                            '<option value="">All Roles</option>';
+                        roles.forEach((role) => {
+                            const option = document.createElement("option");
+                            option.value = role.id;
+                            option.textContent = role.name;
+                            filterRole.appendChild(option);
+                        });
+                    })
+                    .catch((error) =>
+                        console.error("Error loading roles for filter:", error),
+                    );
+            }
+
+            function loadManagersForFilter() {
+                fetch("/api/employees")
+                    .then((response) => response.json())
+                    .then((data) => {
+                        const filterManager =
+                            document.getElementById("filterManager");
+                        filterManager.innerHTML =
+                            '<option value="">All Managers</option>';
+                        data.employees.forEach((employee) => {
+                            if (
+                                employee.subordinateCount > 0 ||
+                                !employee.managerId
+                            ) {
+                                // فقط مدیرها یا CEO
+                                const option = document.createElement("option");
+                                option.value = employee.id;
+                                option.textContent = employee.name;
+                                filterManager.appendChild(option);
+                            }
+                        });
+                    })
+                    .catch((error) =>
+                        console.error(
+                            "Error loading managers for filter:",
+                            error,
+                        ),
+                    );
+            }
+
+            function loadEmployees(page) {
+                currentPage = page;
+                const search = document.getElementById("search").value;
+                const searchCode = document.getElementById("searchCode").value;
+                const departmentId = document.getElementById("filterDepartment").value;
+                const roleId = document.getElementById("filterRole").value;
+                const managerId = document.getElementById("filterManager").value;
+                const gender = document.getElementById("filterGender").value;
+
+                const queryParams = new URLSearchParams({
+                    page,
+                    limit,
+                    ...(search && { search }),
+                    ...(searchCode && { searchCode }),
+                    ...(departmentId && { departmentId }),
+                    ...(roleId && { roleId }),
+                    ...(managerId && { managerId }),
+                    ...(gender && { gender }),
+                });
+
+                fetch(`/api/employees?${queryParams}`)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        const employeeList =
+                            document.getElementById("employeeList");
+                        employeeList.innerHTML = "";
+
+                        data.employees.forEach((employee) => {
+                            const row = document.createElement("tr");
+                            row.innerHTML = `
+                            <td>${employee.employeeCode}</td>
+                            <td>${employee.name}</td>
+                            <td>${employee.gender === 'M' ? 'Male' : 'Female'}</td>
+                            <td>${employee.roleName}</td>
+                            <td>${employee.departmentName}</td>
+                            <td>${employee.hireDate}</td>
+                            <td>${employee.managerName || "None"}</td>
+                            <td>${employee.subordinateCount}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="editEmployee(${employee.id}, '${employee.employeeCode}', '${employee.name}', ${employee.roleId}, ${employee.departmentId}, '${employee.hireDate}', ${employee.managerId || ""})">Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${employee.id}, '${employee.name}')">Delete</button>
+                            </td>
+                        `;
+                            employeeList.appendChild(row);
+                        });
+
+                        // تنظیم صفحه‌بندی
+                        const pagination =
+                            document.getElementById("pagination");
+                        pagination.innerHTML = "";
+                        const totalPages = Math.ceil(data.total / data.limit);
+
+                        // دکمه Previous
+                        const prevLi = document.createElement("li");
+                        prevLi.className = `page-item ${data.page === 1 ? "disabled" : ""}`;
+                        prevLi.innerHTML = `<a class="page-link" href="#" onclick="loadEmployees(${data.page - 1})">Previous</a>`;
+                        pagination.appendChild(prevLi);
+
+                        // شماره صفحات
+                        for (let i = 1; i <= totalPages; i++) {
+                            const li = document.createElement("li");
+                            li.className = `page-item ${i === data.page ? "active" : ""}`;
+                            li.innerHTML = `<a class="page-link" href="#" onclick="loadEmployees(${i})">${i}</a>`;
+                            pagination.appendChild(li);
+                        }
+
+                        // دکمه Next
+                        const nextLi = document.createElement("li");
+                        nextLi.className = `page-item ${data.page === totalPages ? "disabled" : ""}`;
+                        nextLi.innerHTML = `<a class="page-link" href="#" onclick="loadEmployees(${data.page + 1})">Next</a>`;
+                        pagination.appendChild(nextLi);
+                    })
+                    .catch((error) =>
+                        console.error("Error fetching employees:", error),
+                    );
+            }
+
+            function resetFilters() {
+                document.getElementById("search").value = "";
+                document.getElementById("filterDepartment").value = "";
+                document.getElementById("filterRole").value = "";
+                document.getElementById("filterManager").value = "";
+                loadEmployees(1);
+            }
+
+            function resetForm() {
+                document.getElementById("employeeForm").reset();
+                document.getElementById("employeeId").value = "";
+                document.getElementById("managerId").value = "";
+                document.getElementById("employeeModalLabel").textContent =
+                    "Add New Employee";
+            }
+
+            function editEmployee(
+                id,
+                employeeCode,
+                name,
+                roleId,
+                departmentId,
+                hireDate,
+                managerId,
+            ) {
+                document.getElementById("employeeId").value = id;
+                document.getElementById("employeeCode").value = employeeCode;
+                document.getElementById("name").value = name;
+                document.getElementById("roleId").value = roleId;
+                document.getElementById("departmentId").value = departmentId;
+                document.getElementById("hireDate").value = hireDate;
+                document.getElementById("managerId").value = managerId || "";
+                document.getElementById("employeeModalLabel").textContent =
+                    "Edit Employee";
+                new bootstrap.Modal(
+                    document.getElementById("employeeModal"),
+                ).show();
+            }
+
+            function saveEmployee() {
+                const id = document.getElementById("employeeId").value;
+                const employee = {
+                    employeeCode: document.getElementById("employeeCode").value,
+                    name: document.getElementById("name").value,
+                    roleId: document.getElementById("roleId").value,
+                    departmentId: document.getElementById("departmentId").value,
+                    hireDate: document.getElementById("hireDate").value,
+                    managerId:
+                        document.getElementById("managerId").value || null,
+                };
+
+                const method = id ? "PUT" : "POST";
+                const url = id ? `/api/employees/${id}` : "/api/employees";
+
+                fetch(url, {
+                    method: method,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(employee),
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            return response.text().then((text) => {
+                                throw new Error(text);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        bootstrap.Modal.getInstance(
+                            document.getElementById("employeeModal"),
+                        ).hide();
+                        loadEmployees(currentPage);
+                        loadEmployeesForManagerDropdown();
+                        loadManagersForFilter();
+                    })
+                    .catch((error) => {
+                        alert("Error saving employee: " + error.message);
+                        console.error("Error saving employee:", error);
+                    });
+            }
+
+            function deleteEmployee(id, name) {
+                if (confirm(`Are you sure you want to delete ${name}?`)) {
+                    fetch(`/api/employees/${id}`, {
+                        method: "DELETE",
+                    })
+                        .then((response) => response.json())
+                        .then(() => {
+                            loadEmployees(currentPage);
+                            loadEmployeesForManagerDropdown();
+                            loadManagersForFilter();
+                        })
+                        .catch((error) =>
+                            console.error("Error deleting employee:", error),
+                        );
+                }
+            }
+
+            function generateReport() {
+                fetch("/api/employees")
+                    .then((response) => response.json())
+                    .then((data) => {
+                        let report = "Employee Report\n\n";
+                        report +=
+                            "ID | Employee Code | Name | Role | Department | Manager | Subordinates\n";
+                        report += "-".repeat(80) + "\n";
+                        data.employees.forEach((employee) => {
+                            report += `${employee.id} | ${employee.employeeCode} | ${employee.name} | ${employee.roleName} | ${employee.departmentName} | ${employee.managerName || "None"} | ${employee.subordinateCount}\n`;
+                        });
+                        report += "\nTotal Employees: " + data.total;
+
+                        // دانلود گزارش به‌صورت فایل متنی
+                        const blob = new Blob([report], { type: "text/plain" });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "employee_report.txt";
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    })
+                    .catch((error) =>
+                        console.error("Error generating report:", error),
+                    );
+            }
+        </script>
+    </body>
+</html>
