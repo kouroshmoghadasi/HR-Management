@@ -61,7 +61,12 @@
             <div class="container-fluid mt-4">
                 <div class="card">
                     <div class="card-body">
-                        <h1 class="card-title mb-4">Employees</h1>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h1 class="card-title mb-4">Employees</h1>
+                            <button id="resetTestDataBtn" class="btn btn-danger">
+                                Reset Test Data
+                            </button>
+                        </div>
                         <div class="filter-section row g-3 align-items-end mb-3">
                             <div class="col-md-2">
                                 <label for="search" class="form-label">Name</label>
@@ -119,7 +124,7 @@
                             <div class="col-md-2">
                                 <button
                                     class="btn btn-success w-100"
-                                    onclick="generateReport()"
+                                    onclick="exportEmployees()"
                                 >
                                     Export
                                 </button>
@@ -158,7 +163,7 @@
                 </div>
             </div>
 
-            <!-- مودال برای فرم -->
+            <!-- Modal for form -->
             <div
                 class="modal fade"
                 id="employeeModal"
@@ -447,7 +452,7 @@
                                 employee.subordinateCount > 0 ||
                                 !employee.managerId
                             ) {
-                                // فقط مدیرها یا CEO
+                                // Only managers or CEO
                                 const option = document.createElement("option");
                                 option.value = employee.id;
                                 option.textContent = employee.name;
@@ -509,19 +514,19 @@
                             employeeList.appendChild(row);
                         });
 
-                        // تنظیم صفحه‌بندی
+                        // Pagination setup
                         const pagination =
                             document.getElementById("pagination");
                         pagination.innerHTML = "";
                         const totalPages = Math.ceil(data.total / data.limit);
 
-                        // دکمه Previous
+                        // Previous button
                         const prevLi = document.createElement("li");
                         prevLi.className = `page-item ${data.page === 1 ? "disabled" : ""}`;
                         prevLi.innerHTML = `<a class="page-link" href="#" onclick="loadEmployees(${data.page - 1})">Previous</a>`;
                         pagination.appendChild(prevLi);
 
-                        // شماره صفحات
+                        // Page numbers
                         for (let i = 1; i <= totalPages; i++) {
                             const li = document.createElement("li");
                             li.className = `page-item ${i === data.page ? "active" : ""}`;
@@ -529,7 +534,7 @@
                             pagination.appendChild(li);
                         }
 
-                        // دکمه Next
+                        // Next button
                         const nextLi = document.createElement("li");
                         nextLi.className = `page-item ${data.page === totalPages ? "disabled" : ""}`;
                         nextLi.innerHTML = `<a class="page-link" href="#" onclick="loadEmployees(${data.page + 1})">Next</a>`;
@@ -582,14 +587,21 @@
             function saveEmployee() {
                 const id = document.getElementById("employeeId").value;
                 const employee = {
-                    employeeCode: document.getElementById("employeeCode").value,
-                    name: document.getElementById("name").value,
-                    roleId: document.getElementById("roleId").value,
-                    departmentId: document.getElementById("departmentId").value,
-                    hireDate: document.getElementById("hireDate").value,
-                    managerId:
-                        document.getElementById("managerId").value || null,
+                    employeeCode: document.getElementById("employeeCode").value.trim(),
+                    name: document.getElementById("name").value.trim(),
+                    roleId: document.getElementById("roleId").value || null,
+                    departmentId: document.getElementById("departmentId").value || null,
+                    hireDate: document.getElementById("hireDate").value || null,
+                    managerId: document.getElementById("managerId").value || null,
+                    gender: document.getElementById("gender").value || null
                 };
+
+                // Remove empty string/null fields for cleaner payload
+                Object.keys(employee).forEach(key => {
+                    if (employee[key] === "" || employee[key] === undefined) {
+                        employee[key] = null;
+                    }
+                });
 
                 const method = id ? "PUT" : "POST";
                 const url = id ? `/api/employees/${id}` : "/api/employees";
@@ -651,7 +663,7 @@
                         });
                         report += "\nTotal Employees: " + data.total;
 
-                        // دانلود گزارش به‌صورت فایل متنی
+                        // Download report as text file
                         const blob = new Blob([report], { type: "text/plain" });
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement("a");
@@ -664,6 +676,66 @@
                         console.error("Error generating report:", error),
                     );
             }
+
+            function exportEmployees() {
+                const departmentId = document.getElementById("filterDepartment").value;
+                const roleId = document.getElementById("filterRole").value;
+                const managerId = document.getElementById("filterManager").value;
+                const search = document.getElementById("search").value;
+                const gender = document.getElementById("filterGender").value;
+                // Build query string
+                const params = new URLSearchParams();
+                if (departmentId) params.append("departmentId", departmentId);
+                if (roleId) params.append("roleId", roleId);
+                if (managerId) params.append("managerId", managerId);
+                if (search) params.append("search", search);
+                if (gender) params.append("gender", gender);
+                window.location.href = "/api/employees/export" + (params.toString() ? ("?" + params.toString()) : "");
+            }
+
+            document.addEventListener("DOMContentLoaded", () => {
+                document.getElementById("filterRole").addEventListener("change", function() {
+                    loadEmployees(1);
+                });
+                document.getElementById("filterGender").addEventListener("change", function() {
+                    loadEmployees(1);
+                });
+                document.getElementById("filterDepartment").addEventListener("change", function() {
+                    loadEmployees(1);
+                });
+                document.getElementById("filterManager").addEventListener("change", function() {
+                    loadEmployees(1);
+                });
+                document.getElementById("search").addEventListener("input", function() {
+                    loadEmployees(1);
+                });
+                document.getElementById("searchCode").addEventListener("input", function() {
+                    loadEmployees(1);
+                });
+                const resetBtn = document.getElementById("resetTestDataBtn");
+                if (resetBtn) {
+                    resetBtn.addEventListener("click", function() {
+                        if (confirm("Are you sure you want to reset test data? This will delete all employees and insert 100 test records.")) {
+                            fetch("/api/employees/reset-test-data-test")
+                                .then(res => {
+                                    if (!res.ok) throw new Error("Reset failed");
+                                    return res.json();
+                                })
+                                .then(data => {
+                                    alert("Test data reset successfully!");
+                                    if (typeof loadEmployees === "function") {
+                                        loadEmployees(1);
+                                    } else {
+                                        location.reload();
+                                    }
+                                })
+                                .catch(err => {
+                                    alert("Failed to reset test data: " + err.message);
+                                });
+                        }
+                    });
+                }
+            });
         </script>
     </body>
 </html>

@@ -103,7 +103,7 @@
                     // If you need to show the current user in the sidebar, add it here
                 });
                 loadPartial('navbar-container', 'navbar.html', function() {
-                    // نمایش نام کاربر جاری در navbar
+                    // Display current user in navbar
                     fetch('/api/current-user')
                         .then(res => res.json())
                         .then(data => {
@@ -113,7 +113,7 @@
                                 document.getElementById('currentUser').textContent = '';
                             }
                         });
-                    // عملکرد logout
+                    // Logout functionality
                     const logoutLink = document.querySelector('a[href="#logout"]');
                     if (logoutLink) {
                         logoutLink.addEventListener('click', function(e) {
@@ -126,7 +126,7 @@
                     }
                 });
 
-                // دریافت تعداد کل کارمندا
+                // Fetch total number of employees
                 fetch("/api/employees")
                     .then((response) => response.json())
                     .then((data) => {
@@ -137,7 +137,7 @@
                         console.error("Error fetching employees:", error),
                     );
 
-                // دریافت تعداد کل دپارتمان‌ها
+                // Fetch total number of departments
                 fetch("/api/departments")
                     .then((response) => response.json())
                     .then((departments) => {
@@ -149,7 +149,7 @@
                         console.error("Error fetching departments:", error),
                     );
 
-                // دریافت تعداد کل اعضای خانواده
+                // Fetch total number of family members
                 fetch("/api/family")
                     .then((response) => response.json())
                     .then((family) => {

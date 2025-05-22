@@ -146,6 +146,17 @@ app.put("/api/roles/:id", (req, res) => {
 });
 
 // API to delete a role
+app.delete("/api/roles/:id", (req, res) => {
+    const id = req.params.id;
+    db.run(`DELETE FROM Roles WHERE id = ?`, [id], function (err) {
+        if (err) {
+            res.status(500).send("Database error");
+        } else {
+            res.json({ deleted: this.changes });
+        }
+    });
+});
+
 // Profile API endpoints
 app.get("/api/profile", (req, res) => {
     // For demo purposes, returning mock data
@@ -165,17 +176,6 @@ app.put("/api/profile", (req, res) => {
     res.json({ success: true });
 });
 
-app.delete("/api/roles/:id", (req, res) => {
-    const id = req.params.id;
-    db.run(`DELETE FROM Roles WHERE id = ?`, [id], function (err) {
-        if (err) {
-            res.status(500).send("Database error");
-        } else {
-            res.json({ deleted: this.changes });
-        }
-    });
-});
-
 // API to get all employees with filter and pagination
 app.get("/api/employees", (req, res) => {
     const {
@@ -185,6 +185,8 @@ app.get("/api/employees", (req, res) => {
         roleId,
         managerId,
         search,
+        gender,
+        searchCode // Added
     } = req.query;
     const offset = (page - 1) * limit;
 
@@ -220,6 +222,14 @@ app.get("/api/employees", (req, res) => {
     if (search) {
         conditions.push(`Employees.name LIKE ?`);
         params.push(`%${search}%`);
+    }
+    if (searchCode) { // Added
+        conditions.push(`Employees.employeeCode LIKE ?`);
+        params.push(`%${searchCode}%`);
+    }
+    if (gender) {
+        conditions.push(`Employees.gender = ?`);
+        params.push(gender);
     }
 
     if (conditions.length > 0) {
@@ -358,10 +368,10 @@ app.put("/api/employees/:id", (req, res) => {
     }
 });
 
-// API برای حذف کارمند
+// API to delete an employee
 app.delete("/api/employees/:id", (req, res) => {
     const id = req.params.id;
-    // قبل از حذف، managerId کارمندی که به این کارمند گزارش می‌دن رو null کنیم
+    // Before deleting, set managerId of the employee reporting to this employee to null
     db.run(
         `UPDATE Employees SET managerId = NULL WHERE managerId = ?`,
         [id],
@@ -381,37 +391,71 @@ app.delete("/api/employees/:id", (req, res) => {
     );
 });
 
-// API برای دریافت داده‌های چارت سازمانی
+// CEO at the top, departments as children, employees under departments
 app.get("/api/orgchart", (req, res) => {
-    db.all(
-        `SELECT Employees.id, Employees.name, Employees.roleId, Roles.name AS roleName, Employees.managerId
-         FROM Employees 
-         JOIN Roles ON Employees.roleId = Roles.id`,
-        [],
-        (err, rows) => {
+    db.get(`SELECT Employees.id, Employees.name, Employees.roleId, Roles.name AS roleName
+            FROM Employees JOIN Roles ON Employees.roleId = Roles.id
+            WHERE Employees.managerId IS NULL LIMIT 1`, [], (err, ceo) => {
+        if (err || !ceo) {
+            return res.status(500).send("No CEO found");
+        }
+        db.all("SELECT * FROM Departments", [], (err, departments) => {
             if (err) {
-                console.error("Database error in /api/orgchart:", err);
-                res.status(500).send("Database error: " + err.message);
-                return;
+                return res.status(500).send("Database error: " + err.message);
             }
-            if (!rows || rows.length === 0) {
-                res.status(404).send("No employees found");
-                return;
-            }
-            // تبدیل داده‌ها به فرمت مناسب برای OrgChart.js
-            const nodes = rows.map((employee) => ({
-                id: employee.id,
-                name: employee.name,
-                title: employee.roleName,
-                parentId: employee.managerId,
-            }));
-            console.log("OrgChart data:", nodes); // برای دیباگ
-            res.json(nodes);
-        },
-    );
+            db.all(`SELECT Employees.id, Employees.name, Employees.roleId, Roles.name AS roleName, Employees.managerId, Employees.departmentId
+                    FROM Employees JOIN Roles ON Employees.roleId = Roles.id WHERE Employees.managerId IS NOT NULL`, [], (err, employees) => {
+                if (err) {
+                    return res.status(500).send("Database error: " + err.message);
+                }
+                // Grouping employees by department
+                const deptMap = {};
+                departments.forEach(dept => {
+                    deptMap[dept.id] = {
+                        id: `dept_${dept.id}`,
+                        name: dept.name,
+                        title: "Department",
+                        type: "department",
+                        children: []
+                    };
+                });
+                // Adding employees to the corresponding department
+                employees.forEach(emp => {
+                    deptMap[emp.departmentId].children.push({
+                        id: emp.id,
+                        name: emp.name,
+                        title: emp.roleName,
+                        type: "employee",
+                        managerId: emp.managerId
+                    });
+                });
+                // Manager-subordinate hierarchy within each department
+                Object.values(deptMap).forEach(dept => {
+                    const empMap = {};
+                    dept.children.forEach(e => empMap[e.id] = e);
+                    dept.children.forEach(e => {
+                        if (e.managerId && empMap[e.managerId]) {
+                            empMap[e.managerId].children = empMap[e.managerId].children || [];
+                            empMap[e.managerId].children.push(e);
+                        }
+                    });
+                    dept.children = dept.children.filter(e => !e.managerId || !empMap[e.managerId]);
+                });
+                // CEO root node
+                const root = {
+                    id: `ceo_${ceo.id}`,
+                    name: ceo.name,
+                    title: ceo.roleName,
+                    type: "ceo",
+                    children: Object.values(deptMap)
+                };
+                res.json([root]);
+            });
+        });
+    });
 });
 
-// API برای دریافت همه روابط
+// API to get all relationships
 app.get("/api/relationships", (req, res) => {
     db.all("SELECT * FROM Relationships", [], (err, rows) => {
         if (err) {
@@ -422,7 +466,7 @@ app.get("/api/relationships", (req, res) => {
     });
 });
 
-// API برای اضافه کردن رابطه
+// API to add a relationship
 app.post("/api/relationships", (req, res) => {
     const { name } = req.body;
     db.run(
@@ -438,7 +482,7 @@ app.post("/api/relationships", (req, res) => {
     );
 });
 
-// API برای ویرایش رابطه
+// API to edit a relationship
 app.put("/api/relationships/:id", (req, res) => {
     const { name } = req.body;
     const id = req.params.id;
@@ -455,7 +499,7 @@ app.put("/api/relationships/:id", (req, res) => {
     );
 });
 
-// API برای حذف رابطه
+// API to delete a relationship
 app.delete("/api/relationships/:id", (req, res) => {
     const id = req.params.id;
     db.run(`DELETE FROM Relationships WHERE id = ?`, [id], function (err) {
@@ -467,7 +511,7 @@ app.delete("/api/relationships/:id", (req, res) => {
     });
 });
 
-// API برای دریافت همه اعضای خانواده
+// API to get all family members
 app.get("/api/family", (req, res) => {
     db.all(
         `SELECT FamilyMembers.id, FamilyMembers.employeeId, FamilyMembers.name, 
@@ -487,7 +531,7 @@ app.get("/api/family", (req, res) => {
     );
 });
 
-// API برای اضافه کردن عضو خانواده
+// API to add a family member
 app.post("/api/family", (req, res) => {
     const { employeeId, name, relationshipId, birthDate } = req.body;
     db.run(
@@ -503,7 +547,7 @@ app.post("/api/family", (req, res) => {
     );
 });
 
-// API برای ویرایش عضو خانواده
+// API to edit a family member
 app.put("/api/family/:id", (req, res) => {
     const { employeeId, name, relationshipId, birthDate } = req.body;
     const id = req.params.id;
@@ -520,7 +564,7 @@ app.put("/api/family/:id", (req, res) => {
     );
 });
 
-// API برای حذف عضو خانواده
+// API to delete a family member
 app.delete("/api/family/:id", (req, res) => {
     const id = req.params.id;
     db.run(`DELETE FROM FamilyMembers WHERE id = ?`, [id], function (err) {
@@ -532,8 +576,8 @@ app.delete("/api/family/:id", (req, res) => {
     });
 });
 
-// مسیر برای صفحه اصلی
-// API برای داده‌های داشبورد تحلیلی
+// Route for the main page
+// API for analytical dashboard data
 app.get("/api/dashboard/analytics", (req, res) => {
     console.log('Dashboard analytics endpoint called'); // Debug log
     db.all(`
@@ -566,30 +610,30 @@ app.get("/api/dashboard/analytics", (req, res) => {
         rows.forEach(row => {
             totalEmployees += row.count;
 
-            // محاسبه سن
+            // Calculate age
             if (row.birthDate) {
                 const age = new Date().getFullYear() - new Date(row.birthDate).getFullYear();
                 totalAge += age * row.count;
 
-                // گروه‌بندی سنی
+                // Age grouping
                 const ageGroup = Math.floor(age / 5) * 5;
                 const ageGroupLabel = `${ageGroup}-${ageGroup + 4}`;
                 analytics.ageDistribution[ageGroupLabel] = (analytics.ageDistribution[ageGroupLabel] || 0) + row.count;
             }
 
-            // توزیع جنسیتی
+            // Gender distribution
             if (row.gender === 'M') {
                 analytics.genderDistribution.male += row.count;
             } else if (row.gender === 'F') {
                 analytics.genderDistribution.female += row.count;
             }
 
-            // توزیع تحصیلات
+            // Education distribution
             if (row.education) {
                 analytics.educationDistribution[row.education] = (analytics.educationDistribution[row.education] || 0) + row.count;
             }
 
-            // توزیع دپارتمانی
+            // Department distribution
             if (row.departmentId) {
                 analytics.departmentDistribution[row.departmentId] = (analytics.departmentDistribution[row.departmentId] || 0) + row.count;
             }
@@ -598,7 +642,7 @@ app.get("/api/dashboard/analytics", (req, res) => {
         analytics.totalEmployees = totalEmployees;
         analytics.averageAge = totalEmployees > 0 ? totalAge / totalEmployees : 0;
 
-        // تبدیل نسبت‌های جنسیتی
+        // Convert gender ratios
         const maleCount = rows.find(r => r.gender === 'M')?.count || 0;
             const femaleCount = rows.find(r => r.gender === 'F')?.count || 0;
             const total = maleCount + femaleCount;
@@ -612,27 +656,27 @@ app.get("/api/dashboard/analytics", (req, res) => {
         });
 });
 
-// صفحه اصلی (داشبورد) فقط برای کاربران لاگین شده
+// Main page (dashboard) route, accessible only to logged-in users
 app.get('/', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// مسیر برای صفحه کارکنان
+// Route for the employees page
 app.get("/employees", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "employees.html"));
 });
 
-// مسیر برای صفحه اعضای خانواده
+// Route for the family members page
 app.get("/family", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "family.html"));
 });
 
-// مسیر برای صفحه تنظیمات
+// Route for the settings page
 app.get("/settings", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "settings.html"));
 });
 
-// مسیر برای صفحه چارت سازمانی
+// Route for the organizational chart page
 app.get("/orgchart", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "orgchart.html"));
 });
@@ -642,7 +686,7 @@ app.get("/profile", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "profile.html"));
 });
 
-// API برای دریافت کاربر جاری
+// API to get current user
 app.get('/api/current-user', (req, res) => {
     if (req.session && req.session.user) {
         res.json({ username: req.session.user.username });
@@ -651,7 +695,265 @@ app.get('/api/current-user', (req, res) => {
     }
 });
 
-// راه‌اندازی سرور
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
+// Export filtered employees to CSV (no pagination, all filtered records)
+app.get("/api/employees/export", (req, res) => {
+    // Only allow these filters, ignore any page/limit
+    const departmentId = req.query.departmentId;
+    const roleId = req.query.roleId;
+    const managerId = req.query.managerId;
+    const search = req.query.search;
+    const gender = req.query.gender;
+
+    let query = `
+        SELECT Employees.id, Employees.employeeCode, Employees.name, Employees.roleId, 
+               Employees.departmentId, Employees.hireDate, Employees.managerId, Employees.gender,
+               Employees.birthDate, Employees.education, 
+               Roles.name AS roleName, Departments.name AS departmentName,
+               Managers.name AS managerName
+        FROM Employees 
+        JOIN Roles ON Employees.roleId = Roles.id 
+        JOIN Departments ON Employees.departmentId = Departments.id
+        LEFT JOIN Employees AS Managers ON Employees.managerId = Managers.id
+    `;
+    let params = [];
+    let conditions = [];
+
+    if (departmentId && departmentId !== "") {
+        conditions.push(`Employees.departmentId = ?`);
+        params.push(departmentId);
+    }
+    if (roleId && roleId !== "") {
+        conditions.push(`Employees.roleId = ?`);
+        params.push(roleId);
+    }
+    if (managerId && managerId !== "") {
+        conditions.push(`Employees.managerId = ?`);
+        params.push(managerId);
+    }
+    if (search && search !== "") {
+        conditions.push(`Employees.name LIKE ?`);
+        params.push(`%${search}%`);
+    }
+    if (gender && gender !== "") {
+        conditions.push(`Employees.gender = ?`);
+        params.push(gender);
+    }
+    if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            res.status(500).send("Database error");
+            return;
+        }
+        // Prepare CSV header
+        const header = [
+            "ID", "Employee Code", "Name", "Role", "Department", "Hire Date", "Manager", "Gender", "Birth Date", "Education"
+        ];
+        // Prepare CSV rows
+        const csvRows = rows.map(emp => [
+            emp.id,
+            emp.employeeCode,
+            emp.name,
+            emp.roleName,
+            emp.departmentName,
+            emp.hireDate,
+            emp.managerName || '',
+            emp.gender,
+            emp.birthDate,
+            emp.education
+        ]);
+        // Convert to CSV string
+        const csv = [header, ...csvRows].map(row => row.map(field => `"${(field||'').toString().replace(/"/g, '""')}"`).join(",")).join("\r\n");
+        res.setHeader('Content-Type', 'text/csv; charset=UTF-8');
+        res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''employees.csv");
+        res.send(csv);
+    });
 });
+
+// Utility endpoint to reset Employees table and insert 100 test employees (only 1 CEO)
+app.post("/api/employees/reset-test-data", async (req, res) => {
+    // Delete all employees
+    db.run("DELETE FROM Employees", [], function (err) {
+        if (err) {
+            res.status(500).send("Database error (delete)");
+            return;
+        }
+        // Assumption: CEO and other roles and departments already exist in Roles and Departments tables
+        db.get("SELECT id FROM Roles WHERE name = 'CEO'", [], (err, ceoRole) => {
+            if (err || !ceoRole) {
+                res.status(500).send("Role 'CEO' not found");
+                return;
+            }
+            db.get("SELECT id FROM Departments LIMIT 1", [], (err, dep) => {
+                if (err || !dep) {
+                    res.status(500).send("No department found");
+                    return;
+                }
+                // Insert CEO
+                db.run(
+                    `INSERT INTO Employees (employeeCode, name, roleId, departmentId, hireDate, managerId, gender, birthDate, education) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+                    [
+                        "E001",
+                        "Ali CEO",
+                        ceoRole.id,
+                        dep.id,
+                        "2020-01-01",
+                        "M",
+                        "1980-01-01",
+                        "PhD"
+                    ],
+                    function (err) {
+                        if (err) {
+                            res.status(500).send("Database error (insert CEO)");
+                            return;
+                        }
+                        const ceoId = this.lastID;
+                        // Now insert 99 regular employees
+                        db.all("SELECT id FROM Roles WHERE name != 'CEO' LIMIT 3", [], (err, roles) => {
+                            if (err || !roles || roles.length === 0) {
+                                res.status(500).send("No non-CEO roles found");
+                                return;
+                            }
+                            let employees = [];
+                            for (let i = 2; i <= 100; i++) {
+                                const role = roles[(i-2)%roles.length];
+                                employees.push([
+                                    `E${String(i).padStart(3, '0')}`,
+                                    `Test Employee ${i}`,
+                                    role.id,
+                                    dep.id,
+                                    `2021-01-${(i%28+1).toString().padStart(2,'0')}`,
+                                    ceoId,
+                                    i%2===0 ? "M" : "F",
+                                    `199${i%10}-05-15`,
+                                    i%3===0 ? "Bachelor" : (i%3===1 ? "Master" : "Diploma")
+                                ]);
+                            }
+                            const placeholders = employees.map(()=>"(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(",");
+                            const flat = employees.flat();
+                            db.run(
+                                `INSERT INTO Employees (employeeCode, name, roleId, departmentId, hireDate, managerId, gender, birthDate, education) VALUES ${placeholders}`,
+                                flat,
+                                function (err) {
+                                    if (err) {
+                                        res.status(500).send("Database error (insert employees): " + err.message);
+                                    } else {
+                                        res.json({ success: true, total: 100 });
+                                    }
+                                }
+                            );
+                        });
+                    }
+                );
+            });
+        });
+    });
+});
+
+// GET endpoint for test: reset Employees table and insert 100 test employees (only 1 CEO)
+app.get("/api/employees/reset-test-data-test", async (req, res) => {
+    db.run("DELETE FROM Employees", [], function (err) {
+        if (err) {
+            res.status(500).send("Database error (delete)");
+            return;
+        }
+        db.all("SELECT id, name FROM Roles", [], (err, allRoles) => {
+            if (err || !allRoles || allRoles.length === 0) {
+                res.status(500).send("No roles found");
+                return;
+            }
+            const ceoRole = allRoles.find(r => r.name === 'CEO');
+            if (!ceoRole) {
+                res.status(500).send("Role 'CEO' not found");
+                return;
+            }
+            db.all("SELECT id, name FROM Departments", [], (err, departments) => {
+                if (err || !departments || departments.length === 0) {
+                    res.status(500).send("No departments found");
+                    return;
+                }
+                // Only English names
+                const firstNames = ["David", "Emma", "John", "Sophia", "Daniel", "Olivia", "Michael", "Emily", "James", "Hannah", "William", "Mia", "Benjamin", "Charlotte", "Lucas", "Amelia", "Henry", "Ella", "Jack", "Grace", "Liam", "Ava", "Noah", "Isabella", "Mason", "Chloe", "Ethan", "Zoe", "Logan", "Lily", "Jacob", "Madison", "Elijah", "Abigail", "Alexander", "Sofia", "Matthew", "Scarlett", "Jackson", "Victoria"];
+                const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Martinez", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Clark", "Lewis", "Robinson", "Walker", "Young", "Allen", "King", "Wright", "Scott", "Green", "Baker", "Adams", "Nelson", "Hill", "Carter", "Mitchell", "Campbell", "Roberts", "Evans", "Turner", "Parker"];
+                // CEO
+                db.run(
+                        'INSERT INTO Employees (employeeCode, name, roleId, departmentId, hireDate, managerId, gender, birthDate, education) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [
+                            "E001",
+                            "Dr. David Smith",
+                            ceoRole.id,
+                            departments[0].id,
+                            "2020-01-01",
+                            null,
+                            "M",
+                            "1975-01-01",
+                            "PhD"
+                        ],
+                        function (err) {
+                            if (err) {
+                                res.status(500).send("Database error (insert CEO)");
+                                return;
+                            }
+                            const ceoId = this.lastID;
+                            // Only non-CEO roles
+                            const nonCeoRoles = allRoles.filter(r => r.name !== 'CEO');
+                            let employees = [];
+                            for (let i = 2; i <= 100; i++) {
+                                // Random English name
+                                const fname = firstNames[Math.floor(Math.random()*firstNames.length)];
+                                const lname = lastNames[Math.floor(Math.random()*lastNames.length)];
+                                // Random role and department
+                                const role = nonCeoRoles[(i-2)%nonCeoRoles.length];
+                                const dep = departments[(i-2)%departments.length];
+                                employees.push([
+                                    `E${String(i).padStart(3, '0')}`,
+                                    `${fname} ${lname}`,
+                                    role.id,
+                                    dep.id,
+                                    `2021-01-${(i%28+1).toString().padStart(2,'0')}`,
+                                    ceoId,
+                                    i%2===0 ? "M" : "F",
+                                    `199${i%10}-05-15`,
+                                    i%3===0 ? "Bachelor" : (i%3===1 ? "Master" : "Diploma")
+                                ]);
+                            }
+                            const placeholders = employees.map(()=>"(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(",");
+                            const flat = employees.flat();
+                            db.run(
+                                `INSERT INTO Employees (employeeCode, name, roleId, departmentId, hireDate, managerId, gender, birthDate, education) VALUES ${placeholders}`,
+                                flat,
+                                function (err) {
+                                    if (err) {
+                                        res.status(500).send("Database error (insert employees): " + err.message);
+                                    } else {
+                                        res.json({ success: true, total: 100 });
+                                    }
+                                }
+                            );
+                        }
+                    );
+            });
+        });
+    });
+});
+
+// Utility endpoint to delete all family members
+app.post("/api/family/reset-all", async (req, res) => {
+    db.run("DELETE FROM FamilyMembers", [], function (err) {
+        if (err) {
+            res.status(500).send("Database error (delete family members)");
+        } else {
+            res.json({ success: true });
+        }
+    });
+});
+
+// Start the server
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app;
